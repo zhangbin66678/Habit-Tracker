@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { authFetch } from "@/contexts/AuthContext";
 
 interface Habit {
   id: string;
@@ -14,14 +15,16 @@ export default function HomePage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayStr, setTodayStr] = useState("");
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchHabits = useCallback(async () => {
     try {
-      const res = await fetch("/api/habits");
+      const res = await authFetch("/api/habits");
       const json = await res.json();
-      if (json.success) {
-        setHabits(json.data);
-      }
+      if (json.success) setHabits(json.data);
     } catch (err) {
       console.error("Failed to fetch habits:", err);
     } finally {
@@ -31,15 +34,16 @@ export default function HomePage() {
 
   useEffect(() => {
     const now = new Date();
-    const str = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
-    setTodayStr(str);
+    setTodayStr(`${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`);
     fetchHabits();
   }, [fetchHabits]);
 
   const toggleCheckin = async (habitId: string) => {
     try {
-      const res = await fetch(`/api/habits/${habitId}/checkin`, {
+      const res = await authFetch(`/api/habits/${habitId}/checkin`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
       });
       const json = await res.json();
       if (json.success) {
@@ -48,9 +52,34 @@ export default function HomePage() {
             h.id === habitId ? { ...h, checkedToday: json.checked } : h
           )
         );
+        if (json.checked) setExpandedId(habitId);
       }
     } catch (err) {
       console.error("Checkin failed:", err);
+    }
+  };
+
+  const handleImageUpload = async (habitId: string, file: File) => {
+    setUploadingId(habitId);
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      const res = await authFetch("/api/upload", { method: "POST", body: formData });
+      const json = await res.json();
+      if (json.success) {
+        // Update checkin with image
+        await authFetch(`/api/habits/${habitId}/checkin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: json.data.url, note }),
+        });
+        setExpandedId(null);
+        setNote("");
+      }
+    } catch (err) {
+      console.error("Upload failed:", err);
+    } finally {
+      setUploadingId(null);
     }
   };
 
@@ -68,13 +97,11 @@ export default function HomePage() {
 
   return (
     <div>
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">今日打卡</h1>
         <p className="text-sm text-gray-500 mt-1">{todayStr}</p>
       </div>
 
-      {/* Progress Card */}
       <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 mb-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-medium text-gray-600">今日进度</span>
@@ -86,12 +113,9 @@ export default function HomePage() {
             style={{ width: `${progressPercent}%` }}
           />
         </div>
-        <p className="text-xs text-gray-400 mt-2">
-          已完成 {checkedCount} / {totalCount} 个习惯
-        </p>
+        <p className="text-xs text-gray-400 mt-2">已完成 {checkedCount} / {totalCount} 个习惯</p>
       </div>
 
-      {/* Habit List */}
       <div className="space-y-3">
         {habits.length === 0 && (
           <div className="text-center py-12 text-gray-400">
@@ -100,53 +124,83 @@ export default function HomePage() {
           </div>
         )}
         {habits.map((habit) => (
-          <button
-            key={habit.id}
-            onClick={() => toggleCheckin(habit.id)}
-            className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200 hover:shadow-md ${
-              habit.checkedToday
-                ? "bg-green-50 border-green-200"
-                : "bg-white border-gray-100 hover:border-gray-200"
-            }`}
-          >
-            <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-              style={{
-                backgroundColor: habit.checkedToday
-                  ? habit.color + "20"
-                  : habit.color + "10",
-              }}
-            >
-              {habit.checkedToday ? "✅" : habit.icon}
-            </div>
-            <div className="flex-1 text-left">
-              <p
-                className={`font-medium ${
-                  habit.checkedToday
-                    ? "text-green-700 line-through"
-                    : "text-gray-800"
-                }`}
-              >
-                {habit.name}
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {habit.checkedToday ? "今日已完成" : "点击完成打卡"}
-              </p>
-            </div>
-            <div
-              className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+          <div key={habit.id}>
+            <button
+              onClick={() => toggleCheckin(habit.id)}
+              className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200 hover:shadow-md ${
                 habit.checkedToday
-                  ? "bg-green-500 border-green-500"
-                  : "border-gray-300"
+                  ? "bg-green-50 border-green-200"
+                  : "bg-white border-gray-100 hover:border-gray-200"
               }`}
             >
-              {habit.checkedToday && (
-                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </div>
-          </button>
+              <div
+                className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                style={{ backgroundColor: habit.color + "15" }}
+              >
+                {habit.checkedToday ? "✅" : habit.icon}
+              </div>
+              <div className="flex-1 text-left">
+                <p className={`font-medium ${habit.checkedToday ? "text-green-700 line-through" : "text-gray-800"}`}>
+                  {habit.name}
+                </p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {habit.checkedToday ? "今日已完成" : "点击完成打卡"}
+                </p>
+              </div>
+              <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+                habit.checkedToday ? "bg-green-500 border-green-500" : "border-gray-300"
+              }`}>
+                {habit.checkedToday && (
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </button>
+
+            {/* Image upload area after checkin */}
+            {expandedId === habit.id && (
+              <div className="mt-2 ml-4 p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2">
+                <p className="text-xs text-gray-500">添加打卡记录（可选）</p>
+                <input
+                  type="text"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="写点什么..."
+                  maxLength={200}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm focus:border-blue-400 outline-none"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(habit.id, file);
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingId === habit.id}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-600 hover:bg-gray-100 disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    {uploadingId === habit.id ? "上传中..." : "添加图片"}
+                  </button>
+                  <button
+                    onClick={() => { setExpandedId(null); setNote(""); }}
+                    className="px-3 py-1.5 text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    跳过
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         ))}
       </div>
     </div>
