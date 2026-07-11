@@ -23,8 +23,8 @@
 | **前端** | Next.js 14 / React 18 / TypeScript |
 | **样式** | Tailwind CSS |
 | **后端** | Next.js API Routes (Node.js) |
-| **数据存储** | 本地 JSON 文件（零配置，Vercel 兼容） |
-| **部署平台** | Vercel |
+| **数据存储** | MySQL 8.0（mysql2 连接池） |
+| **部署平台** | Vercel / 本地 |
 
 ---
 
@@ -53,9 +53,9 @@ habit-tracker/
 │   │   └── Navbar.tsx            # 底部导航栏组件
 │   └── lib/
 │       ├── types.ts              # TypeScript 类型定义
-│       └── db.ts                 # JSON文件读写工具
+│   └── db.ts                 # MySQL连接池与工具函数
 ├── data/
-│   └── habits.json               # 习惯与打卡数据
+│   └── habits.json               # 初始示例数据（已迁移至MySQL）
 ├── docs/                         # 截图与相关附件
 ├── README.md                     # 本文件
 ├── prompt_log.md                 # AI 交互日志
@@ -73,7 +73,23 @@ habit-tracker/
 npm install
 ```
 
-### 2. 启动开发服务器
+### 2. 配置数据库
+
+- 确保 MySQL 8.0 已安装并运行
+- 执行初始化脚本创建数据库和表：
+
+```bash
+mysql -u root -p < database/init.sql
+```
+
+- 复制环境变量配置文件并修改：
+
+```bash
+cp .env.example .env.local
+# 根据实际情况修改 .env.local 中的数据库连接信息
+```
+
+### 3. 启动开发服务器
 
 ```bash
 npm run dev

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readData, writeData, generateId, getTodayStr } from "@/lib/db";
+import pool, { generateId, getTodayStr } from "@/lib/db";
 
+// POST /api/habits/[id]/checkin - 打卡/取消打卡
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -15,10 +16,11 @@ export async function POST(
       );
     }
 
-    const data = readData();
-    const habit = data.habits.find((h) => h.id === habitId);
+    const [rows] = await pool.query("SELECT id FROM habits WHERE id = ?", [
+      habitId,
+    ]);
 
-    if (!habit) {
+    if (!(rows as Array<unknown>).length) {
       return NextResponse.json(
         { success: false, error: "习惯不存在" },
         { status: 404 }
@@ -28,14 +30,17 @@ export async function POST(
     const today = getTodayStr();
 
     // Check if already checked in today
-    const existingCheckin = data.checkins.find(
-      (c) => c.habitId === habitId && c.date === today
+    const [existing] = await pool.query(
+      "SELECT id FROM checkins WHERE habit_id = ? AND date = ?",
+      [habitId, today]
     );
 
-    if (existingCheckin) {
-      // Undo checkin (toggle behavior)
-      data.checkins = data.checkins.filter((c) => c.id !== existingCheckin.id);
-      writeData(data);
+    if ((existing as Array<unknown>).length > 0) {
+      // Undo checkin
+      await pool.query(
+        "DELETE FROM checkins WHERE habit_id = ? AND date = ?",
+        [habitId, today]
+      );
       return NextResponse.json({
         success: true,
         checked: false,
@@ -44,20 +49,21 @@ export async function POST(
     }
 
     // Create new checkin
-    const newCheckin = {
-      id: generateId(),
-      habitId,
-      date: today,
-      createdAt: new Date().toISOString(),
-    };
-
-    data.checkins.push(newCheckin);
-    writeData(data);
+    const id = generateId();
+    await pool.query(
+      "INSERT INTO checkins (id, habit_id, date) VALUES (?, ?, ?)",
+      [id, habitId, today]
+    );
 
     return NextResponse.json({
       success: true,
       checked: true,
-      data: newCheckin,
+      data: {
+        id,
+        habitId,
+        date: today,
+        createdAt: new Date().toISOString(),
+      },
       message: "打卡成功",
     });
   } catch {

@@ -20,6 +20,13 @@
       "color": "#8B5CF6",
       "icon": "🧘",
       "createdAt": "2026-07-09T08:00:00.000Z"
+    },
+    {
+      "id": "mrggwvqdagdbql",
+      "name": "阅读书籍30分钟",
+      "color": "#10B981",
+      "icon": "📚",
+      "createdAt": "2026-07-11T14:36:39.973Z"
     }
   ],
   "checkins": [

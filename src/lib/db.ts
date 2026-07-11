@@ -1,30 +1,17 @@
-import fs from "fs";
-import path from "path";
-import { HabitData } from "./types";
+import mysql from "mysql2/promise";
 
-const DATA_FILE = path.join(process.cwd(), "data", "habits.json");
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  port: parseInt(process.env.DB_PORT || "3306"),
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "habit_tracker",
+  waitForConnections: true,
+  connectionLimit: 10,
+  charset: "utf8mb4",
+});
 
-function ensureDataFile(): void {
-  const dir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  if (!fs.existsSync(DATA_FILE)) {
-    const initialData: HabitData = { habits: [], checkins: [] };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(initialData, null, 2), "utf-8");
-  }
-}
-
-export function readData(): HabitData {
-  ensureDataFile();
-  const raw = fs.readFileSync(DATA_FILE, "utf-8");
-  return JSON.parse(raw) as HabitData;
-}
-
-export function writeData(data: HabitData): void {
-  ensureDataFile();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), "utf-8");
-}
+export default pool;
 
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
