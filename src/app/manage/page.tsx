@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface Habit {
   id: string;
@@ -24,6 +26,8 @@ export default function ManagePage() {
   const [icon, setIcon] = useState(ICONS[0]);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const toast = useToast();
+  const confirmCtx = useConfirm();
 
   const fetchHabits = useCallback(async () => {
     try {
@@ -67,7 +71,7 @@ export default function ManagePage() {
           body: JSON.stringify({ id: editingId, name: name.trim(), color, icon }),
         });
         const json = await res.json();
-        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); }
+        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); toast.showSuccess(editingId ? "更新成功" : "创建成功"); }
         else setError(json.error || "更新失败");
       } else {
         const res = await authFetch("/api/habits", {
@@ -76,20 +80,28 @@ export default function ManagePage() {
           body: JSON.stringify({ name: name.trim(), color, icon }),
         });
         const json = await res.json();
-        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); }
+        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); toast.showSuccess("创建成功"); }
         else setError(json.error || "创建失败");
       }
     } catch { setError("网络错误，请重试"); }
     finally { setSubmitting(false); }
   };
 
-  const handleDelete = async (id: string, habitName: string) => {
-    if (!confirm(`确定要删除习惯「${habitName}」吗？`)) return;
-    try {
-      const res = await authFetch(`/api/habits?id=${id}`, { method: "DELETE" });
-      const json = await res.json();
-      if (json.success) setHabits((prev) => prev.filter((h) => h.id !== id));
-    } catch (err) { console.error("Delete failed:", err); }
+  const handleDelete = (id: string, habitName: string) => {
+    confirmCtx.confirm({
+      title: "删除习惯",
+      message: `确定要删除「${habitName}」吗？相关打卡记录也会被清除。`,
+      confirmText: "删除",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          const res = await authFetch(`/api/habits?id=${id}`, { method: "DELETE" });
+          const json = await res.json();
+          if (json.success) { setHabits((prev) => prev.filter((h) => h.id !== id)); toast.showSuccess("已删除"); }
+          else toast.showError(json.error || "删除失败");
+        } catch { toast.showError("网络错误"); }
+      },
+    });
   };
 
   if (loading) {

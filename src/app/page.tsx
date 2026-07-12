@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
+import { useConfirm } from "@/contexts/ConfirmContext";
 
 interface Habit {
   id: string;
@@ -19,6 +21,8 @@ export default function HomePage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const toast = useToast();
+  const confirmCtx = useConfirm();
 
   const fetchHabits = useCallback(async () => {
     try {
@@ -39,6 +43,22 @@ export default function HomePage() {
   }, [fetchHabits]);
 
   const toggleCheckin = async (habitId: string) => {
+    const habit = habits.find((h) => h.id === habitId);
+    // Confirm before unchecking
+    if (habit?.checkedToday) {
+      confirmCtx.confirm({
+        title: "取消打卡",
+        message: `确定要取消「${habit.name}」的今日打卡吗？`,
+        confirmText: "取消打卡",
+        danger: true,
+        onConfirm: () => doCheckin(habitId),
+      });
+      return;
+    }
+    doCheckin(habitId);
+  };
+
+  const doCheckin = async (habitId: string) => {
     try {
       const res = await authFetch(`/api/habits/${habitId}/checkin`, {
         method: "POST",
@@ -52,10 +72,17 @@ export default function HomePage() {
             h.id === habitId ? { ...h, checkedToday: json.checked } : h
           )
         );
-        if (json.checked) setExpandedId(habitId);
+        if (json.checked) {
+          setExpandedId(habitId);
+          toast.showSuccess("打卡成功");
+        } else {
+          toast.showInfo("已取消打卡");
+        }
+      } else {
+        toast.showError(json.error || "操作失败");
       }
-    } catch (err) {
-      console.error("Checkin failed:", err);
+    } catch {
+      toast.showError("网络错误");
     }
   };
 
@@ -76,8 +103,8 @@ export default function HomePage() {
         setExpandedId(null);
         setNote("");
       }
-    } catch (err) {
-      console.error("Upload failed:", err);
+    } catch {
+      toast.showError("上传失败");
     } finally {
       setUploadingId(null);
     }
