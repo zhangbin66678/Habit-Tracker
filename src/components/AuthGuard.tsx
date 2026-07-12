@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter, usePathname } from "next/navigation";
 import { useEffect, ReactNode } from "react";
-import Navbar from "@/components/Navbar";
+import Sidebar from "@/components/Sidebar";
 
 const publicPaths = ["/login", "/register"];
 
@@ -33,11 +33,13 @@ export default function AuthGuard({ children }: { children: ReactNode }) {
   if (isPublic) return <>{children}</>;
 
   return (
-    <>
-      <Navbar />
-      <main className="max-w-lg mx-auto px-4 pt-16 pb-20 min-h-screen">
-        {children}
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar />
+      <main className="ml-64 px-8 py-8 min-h-screen">
+        <div className="max-w-5xl mx-auto">
+          {children}
+        </div>
       </main>
-    </>
+    </div>
   );
 }
