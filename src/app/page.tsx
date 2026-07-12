@@ -24,6 +24,38 @@ export default function HomePage() {
   const toast = useToast();
   const confirmCtx = useConfirm();
 
+  // AI states
+  const [apiKey, setApiKey] = useState("");
+  const [showKeyInput, setShowKeyInput] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState("");
+  const [remaining, setRemaining] = useState(3);
+
+  useEffect(() => { setApiKey(localStorage.getItem("openai_api_key") || ""); }, []);
+
+  const callAI = async (type: "plan" | "motivate") => {
+    const key = apiKey || localStorage.getItem("openai_api_key") || "";
+    if (!key) { setShowKeyInput(true); return; }
+    setAiLoading(true);
+    try {
+      const res = await authFetch(`/api/ai/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const json = await res.json();
+      if (json.success) { setAiResult(json.data); setRemaining(json.remaining); }
+      else toast.showError(json.error || "AI 生成失败");
+    } catch { toast.showError("网络错误"); }
+    finally { setAiLoading(false); }
+  };
+
+  const saveKey = () => {
+    localStorage.setItem("openai_api_key", apiKey);
+    setShowKeyInput(false);
+    toast.showSuccess("API Key 已保存");
+  };
+
   const fetchHabits = useCallback(async () => {
     try {
       const res = await authFetch("/api/habits");
@@ -216,6 +248,49 @@ export default function HomePage() {
               <p className="text-xs text-green-500 mt-1">所有习惯已完成打卡</p>
             </div>
           )}
+
+          {/* AI Assistant */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🤖</span>
+                <h3 className="font-semibold text-gray-800 text-sm">AI 助手</h3>
+                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">LangChain</span>
+              </div>
+              <button onClick={() => setShowKeyInput(!showKeyInput)}
+                className="w-6 h-6 rounded-md bg-white border border-blue-200 flex items-center justify-center text-blue-400 hover:bg-blue-50">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              </button>
+            </div>
+            {showKeyInput && (
+              <div className="bg-white rounded-lg p-2.5 mb-3 border border-blue-200 space-y-1.5">
+                <p className="text-[11px] text-gray-500">OpenAI API Key（仅存本地）</p>
+                <div className="flex gap-1.5">
+                  <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..."
+                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:border-blue-400 outline-none" />
+                  <button onClick={saveKey} className="px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">保存</button>
+                </div>
+              </div>
+            )}
+            <div className="flex gap-1.5 mb-3">
+              <button onClick={() => callAI("plan")} disabled={aiLoading || remaining <= 0}
+                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-40">
+                {aiLoading ? <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /> : <span>📋</span>}
+                今日规划
+              </button>
+              <button onClick={() => callAI("motivate")} disabled={aiLoading || remaining <= 0}
+                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-40">
+                {aiLoading ? <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /> : <span>💪</span>}
+                来点激励
+              </button>
+            </div>
+            {aiResult && (
+              <div className="bg-white rounded-lg p-3 border border-blue-100">
+                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{aiResult}</p>
+              </div>
+            )}
+            <p className="text-[10px] text-gray-400 mt-2 text-right">今日剩余 {remaining}/3 次</p>
+          </div>
         </div>
       </div>
     </div>
