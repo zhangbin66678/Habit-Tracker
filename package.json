@@ -9,8 +9,10 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@langchain/openai": "^1.5.5",
     "bcryptjs": "^3.0.3",
     "jsonwebtoken": "^9.0.3",
+    "langchain": "^1.5.3",
     "mysql2": "^3.22.6",
     "next": "14.2.35",
     "react": "^18",
