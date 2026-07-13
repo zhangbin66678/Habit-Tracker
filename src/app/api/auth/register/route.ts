@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import pool, { generateId } from "@/lib/db";
+import { connectDB, User } from "@/lib/db";
 import { signToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -28,12 +28,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [existing] = await pool.query(
-      "SELECT id FROM users WHERE username = ?",
-      [username.trim()]
-    );
+    await connectDB();
 
-    if ((existing as Array<unknown>).length > 0) {
+    const existing = await User.findOne({ username: username.trim() });
+    if (existing) {
       return NextResponse.json(
         { success: false, error: "用户名已存在" },
         { status: 409 }
@@ -41,21 +39,20 @@ export async function POST(request: NextRequest) {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const id = generateId();
 
-    await pool.query(
-      "INSERT INTO users (id, username, password) VALUES (?, ?, ?)",
-      [id, username.trim(), hashedPassword]
-    );
+    const user = await User.create({
+      username: username.trim(),
+      password: hashedPassword,
+    });
 
-    const token = signToken({ userId: id, username: username.trim() });
+    const token = signToken({ userId: user._id.toString(), username: username.trim() });
 
     return NextResponse.json(
       {
         success: true,
         data: {
           token,
-          user: { id, username: username.trim(), avatar: "" },
+          user: { id: user._id.toString(), username: username.trim(), avatar: "" },
         },
       },
       { status: 201 }

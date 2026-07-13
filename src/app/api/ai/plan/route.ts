@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HumanMessage } from "@langchain/core/messages";
-import pool from "@/lib/db";
+import { connectDB, Habit, Checkin, getTodayStr } from "@/lib/db";
 import { verifyToken, extractToken } from "@/lib/auth";
 import { createLLM, checkRateLimit, getDailyCount } from "@/lib/ai";
 
@@ -24,19 +24,17 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [habits] = await pool.query(
-      "SELECT name, icon, color FROM habits WHERE user_id = ?",
-      [payload.userId]
-    );
-    const [checkins] = await pool.query(
-      "SELECT habit_id FROM checkins WHERE user_id = ? AND DATE(date) = CURDATE()",
-      [payload.userId]
-    );
+    await connectDB();
 
-    const checkedIds = new Set((checkins as Array<{ habit_id: string }>).map((c) => c.habit_id));
-    const habitList = (habits as Array<{ name: string; icon: string }>).map((h) => ({
+    const [habits, checkins] = await Promise.all([
+      Habit.find({ userId: payload.userId }).select("name icon").lean(),
+      Checkin.find({ userId: payload.userId, date: getTodayStr() }).select("habitId").lean(),
+    ]);
+
+    const checkedIds = new Set(checkins.map((c) => c.habitId));
+    const habitList = habits.map((h) => ({
       name: h.name,
-      done: checkedIds.has((h as unknown as { id: string }).id),
+      done: checkedIds.has(h._id.toString()),
     }));
 
     const now = new Date();

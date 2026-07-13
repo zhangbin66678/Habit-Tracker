@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import pool from "@/lib/db";
+import { connectDB, User } from "@/lib/db";
 import { signToken } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
@@ -14,27 +14,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const [rows] = await pool.query(
-      "SELECT id, username, password, avatar, created_at FROM users WHERE username = ?",
-      [username.trim()]
-    );
+    await connectDB();
 
-    const users = rows as Array<{
-      id: string;
-      username: string;
-      password: string;
-      avatar: string;
-      created_at: string;
-    }>;
+    const user = await User.findOne({ username: username.trim() }).select("+password");
 
-    if (users.length === 0) {
+    if (!user) {
       return NextResponse.json(
         { success: false, error: "用户名或密码错误" },
         { status: 401 }
       );
     }
 
-    const user = users[0];
     const valid = await bcrypt.compare(password, user.password);
 
     if (!valid) {
@@ -44,14 +34,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const token = signToken({ userId: user.id, username: user.username });
+    const token = signToken({ userId: user._id.toString(), username: user.username });
 
     return NextResponse.json({
       success: true,
       data: {
         token,
         user: {
-          id: user.id,
+          id: user._id.toString(),
           username: user.username,
           avatar: user.avatar,
         },

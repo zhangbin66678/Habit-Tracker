@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { connectDB, Habit, Checkin } from "@/lib/db";
 import { verifyToken, extractToken } from "@/lib/auth";
 
 // GET /api/checkins?month=2026-07
@@ -10,28 +10,37 @@ export async function GET(request: NextRequest) {
   if (!payload) return NextResponse.json({ success: false, error: "登录已过期" }, { status: 401 });
 
   try {
+    await connectDB();
+
     const { searchParams } = new URL(request.url);
     const month = searchParams.get("month"); // e.g. "2026-07"
 
-    let dateFilter = "";
-    const params: unknown[] = [payload.userId];
-
+    const query: Record<string, unknown> = { userId: payload.userId };
     if (month && /^\d{4}-\d{2}$/.test(month)) {
-      dateFilter = "AND DATE_FORMAT(c.date, '%Y-%m') = ?";
-      params.push(month);
+      query.date = { $regex: `^${month}` };
     }
 
-    const [rows] = await pool.query(
-      `SELECT c.id, c.habit_id AS habitId, h.name AS habitName, h.icon AS habitIcon, h.color AS habitColor,
-              DATE_FORMAT(c.date, '%Y-%m-%d') AS date, c.image, c.note, c.created_at AS createdAt
-       FROM checkins c
-       JOIN habits h ON c.habit_id = h.id
-       WHERE c.user_id = ? ${dateFilter}
-       ORDER BY c.date DESC, c.created_at DESC`,
-      params
-    );
+    const checkins = await Checkin.find(query).sort({ date: -1, createdAt: -1 }).lean();
+    const habitIds = Array.from(new Set(checkins.map((c) => c.habitId)));
+    const habits = await Habit.find({ _id: { $in: habitIds } }).lean();
+    const habitMap = new Map(habits.map((h) => [h._id.toString(), h]));
 
-    return NextResponse.json({ success: true, data: rows });
+    const data = checkins.map((c) => {
+      const h = habitMap.get(c.habitId);
+      return {
+        id: c._id.toString(),
+        habitId: c.habitId,
+        habitName: h?.name || "",
+        habitIcon: h?.icon || "",
+        habitColor: h?.color || "",
+        date: c.date,
+        image: c.image,
+        note: c.note,
+        createdAt: c.createdAt.toISOString(),
+      };
+    });
+
+    return NextResponse.json({ success: true, data });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to fetch checkins" }, { status: 500 });
   }
@@ -45,16 +54,17 @@ export async function DELETE(request: NextRequest) {
   if (!payload) return NextResponse.json({ success: false, error: "登录已过期" }, { status: 401 });
 
   try {
+    await connectDB();
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
     if (!id) return NextResponse.json({ success: false, error: "缺少记录ID" }, { status: 400 });
 
-    const [rows] = await pool.query("SELECT id FROM checkins WHERE id = ? AND user_id = ?", [id, payload.userId]);
-    if (!(rows as Array<unknown>).length) {
+    const checkin = await Checkin.findOneAndDelete({ _id: id, userId: payload.userId });
+    if (!checkin) {
       return NextResponse.json({ success: false, error: "记录不存在" }, { status: 404 });
     }
 
-    await pool.query("DELETE FROM checkins WHERE id = ? AND user_id = ?", [id, payload.userId]);
     return NextResponse.json({ success: true, message: "删除成功" });
   } catch {
     return NextResponse.json({ success: false, error: "Failed to delete checkin" }, { status: 500 });

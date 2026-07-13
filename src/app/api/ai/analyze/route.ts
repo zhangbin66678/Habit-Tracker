@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HumanMessage } from "@langchain/core/messages";
-import pool from "@/lib/db";
+import { connectDB, Habit, Checkin } from "@/lib/db";
 import { verifyToken, extractToken } from "@/lib/auth";
 import { createLLM, checkRateLimit, getDailyCount } from "@/lib/ai";
+
+function formatDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 export async function POST(request: NextRequest) {
   const token = extractToken(request);
@@ -24,25 +28,32 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [habits] = await pool.query(
-      "SELECT id, name, icon FROM habits WHERE user_id = ?",
-      [payload.userId]
-    );
+    await connectDB();
 
-    // Get last 7 days data
-    const [checkins] = await pool.query(
-      `SELECT habit_id, DATE_FORMAT(date, '%Y-%m-%d') AS date
-       FROM checkins WHERE user_id = ? AND date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-       ORDER BY date DESC`,
-      [payload.userId]
-    );
+    const [habits, checkins] = await Promise.all([
+      Habit.find({ userId: payload.userId }).select("name icon").lean(),
+      (() => {
+        const sevenDaysAgo = formatDateStr(new Date(Date.now() - 6 * 86400000));
+        return Checkin.find({ userId: payload.userId, date: { $gte: sevenDaysAgo } })
+          .select("habitId date")
+          .sort({ date: -1 })
+          .lean();
+      })(),
+    ]);
 
-    const habitList = habits as Array<{ id: string; name: string; icon: string }>;
-    const checkinList = checkins as Array<{ habit_id: string; date: string }>;
+    const habitList = habits.map((h) => ({
+      id: h._id.toString(),
+      name: h.name,
+      icon: h.icon,
+    }));
+    const checkinList = checkins.map((c) => ({
+      habitId: c.habitId,
+      date: c.date,
+    }));
 
     // Build per-habit completion data for 7 days
     const analysis = habitList.map((h) => {
-      const dates = checkinList.filter((c) => c.habit_id === h.id).map((c) => c.date);
+      const dates = checkinList.filter((c) => c.habitId === h.id).map((c) => c.date);
       return { name: h.name, checkedDays: dates, totalDays: 7, rate: Math.round((dates.length / 7) * 100) };
     });
 

@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HumanMessage } from "@langchain/core/messages";
-import pool from "@/lib/db";
+import { connectDB, Habit, Checkin, getTodayStr } from "@/lib/db";
 import { verifyToken, extractToken } from "@/lib/auth";
 import { createLLM, checkRateLimit, getDailyCount } from "@/lib/ai";
-import { getTodayStr } from "@/lib/db";
 
 function calculateStreak(checkinDates: string[]): number {
   const dateSet = new Set(checkinDates);
@@ -49,22 +48,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const [habits] = await pool.query(
-      "SELECT COUNT(*) AS total FROM habits WHERE user_id = ?",
-      [payload.userId]
-    );
-    const [todayCheckins] = await pool.query(
-      "SELECT COUNT(*) AS done FROM checkins WHERE user_id = ? AND DATE(date) = CURDATE()",
-      [payload.userId]
-    );
-    const [allCheckins] = await pool.query(
-      "SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date FROM checkins WHERE user_id = ? ORDER BY date DESC LIMIT 365",
-      [payload.userId]
-    );
+    await connectDB();
 
-    const total = (habits as Array<{ total: number }>)[0].total;
-    const done = (todayCheckins as Array<{ done: number }>)[0].done;
-    const streak = calculateStreak((allCheckins as Array<{ date: string }>).map((c) => c.date));
+    const [total, done, allCheckins] = await Promise.all([
+      Habit.countDocuments({ userId: payload.userId }),
+      Checkin.countDocuments({ userId: payload.userId, date: getTodayStr() }),
+      Checkin.find({ userId: payload.userId }).sort({ date: -1 }).limit(365).select("date").lean(),
+    ]);
+
+    const streak = calculateStreak(allCheckins.map((c) => c.date));
     const percent = total > 0 ? Math.round((done / total) * 100) : 0;
 
     const llm = createLLM(apiKey);

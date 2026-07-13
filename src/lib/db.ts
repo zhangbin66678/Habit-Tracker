@@ -1,18 +1,87 @@
-import mysql from "mysql2/promise";
+import mongoose, { Schema, Document, Model } from "mongoose";
 
-const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
-  port: parseInt(process.env.DB_PORT || "3306"),
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "habit_tracker",
-  waitForConnections: true,
-  connectionLimit: 10,
-  charset: "utf8mb4",
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/habit_tracker";
+
+// Global connection cache for serverless
+interface MongooseCache {
+  conn: typeof mongoose | null;
+  promise: Promise<typeof mongoose> | null;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const g = global as any;
+if (!g.mongooseCache) {
+  g.mongooseCache = { conn: null, promise: null };
+}
+const cached = g.mongooseCache as MongooseCache;
+
+export async function connectDB() {
+  if (cached.conn) return;
+  if (!cached.promise) {
+    cached.promise = mongoose.connect(MONGODB_URI).then((m) => m);
+  }
+  cached.conn = await cached.promise;
+}
+
+// --- Schemas ---
+
+export interface IUser extends Document {
+  username: string;
+  password: string;
+  avatar: string;
+  createdAt: Date;
+}
+
+const UserSchema = new Schema<IUser>({
+  username: { type: String, required: true, unique: true, trim: true, minlength: 2, maxlength: 30 },
+  password: { type: String, required: true },
+  avatar: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now },
 });
 
-export default pool;
+export interface IHabit extends Document {
+  userId: string;
+  name: string;
+  color: string;
+  icon: string;
+  createdAt: Date;
+}
 
+const HabitSchema = new Schema<IHabit>({
+  userId: { type: String, required: true, index: true },
+  name: { type: String, required: true, trim: true, maxlength: 50 },
+  color: { type: String, default: "#3B82F6" },
+  icon: { type: String, default: "⭐" },
+  createdAt: { type: Date, default: Date.now },
+});
+
+export interface ICheckin extends Document {
+  habitId: string;
+  userId: string;
+  date: string; // "YYYY-MM-DD"
+  image: string;
+  note: string;
+  createdAt: Date;
+}
+
+const CheckinSchema = new Schema<ICheckin>({
+  habitId: { type: String, required: true, index: true },
+  userId: { type: String, required: true, index: true },
+  date: { type: String, required: true, index: true },
+  image: { type: String, default: "" },
+  note: { type: String, default: "" },
+  createdAt: { type: Date, default: Date.now },
+});
+
+// Compound unique index for checkins
+CheckinSchema.index({ userId: 1, habitId: 1, date: 1 }, { unique: true });
+
+// --- Models ---
+export const User = (mongoose.models.User || mongoose.model<IUser>("User", UserSchema)) as Model<IUser>;
+export const Habit = (mongoose.models.Habit || mongoose.model<IHabit>("Habit", HabitSchema)) as Model<IHabit>;
+export const Checkin = (mongoose.models.Checkin || mongoose.model<ICheckin>("Checkin", CheckinSchema)) as Model<ICheckin>;
+
+// --- Helpers ---
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2, 8);
 }

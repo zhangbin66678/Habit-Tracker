@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import pool from "@/lib/db";
+import { connectDB, User } from "@/lib/db";
 import { verifyToken, extractToken } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -20,20 +20,25 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [rows] = await pool.query(
-      "SELECT id, username, avatar, created_at FROM users WHERE id = ?",
-      [payload.userId]
-    );
+    await connectDB();
 
-    const users = rows as Array<unknown>;
-    if (users.length === 0) {
+    const user = await User.findById(payload.userId).select("-password");
+    if (!user) {
       return NextResponse.json(
         { success: false, error: "用户不存在" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ success: true, data: users[0] });
+    return NextResponse.json({
+      success: true,
+      data: {
+        id: user._id.toString(),
+        username: user.username,
+        avatar: user.avatar,
+        createdAt: user.createdAt.toISOString(),
+      },
+    });
   } catch {
     return NextResponse.json(
       { success: false, error: "获取用户信息失败" },
