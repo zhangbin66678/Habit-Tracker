@@ -25,15 +25,19 @@ export async function GET(request: NextRequest) {
     const checkins = await Checkin.find({ userId: user.userId, date: today }).select("habitId").lean();
 
     const checkedSet = new Set(checkins.map((c) => c.habitId));
+    const dayOfWeek = new Date().getDay(); // 0=Sun
 
-    const habitsWithStatus = habits.map((h) => ({
-      id: h._id.toString(),
-      name: h.name,
-      color: h.color,
-      icon: h.icon,
-      createdAt: h.createdAt.toISOString(),
-      checkedToday: checkedSet.has(h._id.toString()),
-    }));
+    const habitsWithStatus = habits
+      .filter((h) => h.schedule.length === 0 || h.schedule.includes(dayOfWeek))
+      .map((h) => ({
+        id: h._id.toString(),
+        name: h.name,
+        color: h.color,
+        icon: h.icon,
+        schedule: (h.schedule as number[]).length === 0 ? "每天" : h.schedule.map((d) => ["周日","周一","周二","周三","周四","周五","周六"][d]).join("、"),
+        createdAt: h.createdAt.toISOString(),
+        checkedToday: checkedSet.has(h._id.toString()),
+      }));
 
     return NextResponse.json({ success: true, data: habitsWithStatus });
   } catch {
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { name, color, icon } = body;
+    const { name, color, icon, schedule } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json({ success: false, error: "习惯名称不能为空" }, { status: 400 });
@@ -64,6 +68,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       color: color || "#3B82F6",
       icon: icon || "⭐",
+      schedule: Array.isArray(schedule) ? schedule : [],
     });
 
     return NextResponse.json(
@@ -92,7 +97,7 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB();
 
-    const { id, name, color, icon } = await request.json();
+    const { id, name, color, icon, schedule } = await request.json();
 
     if (!id) {
       return NextResponse.json({ success: false, error: "缺少习惯ID" }, { status: 400 });
@@ -112,10 +117,11 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    const updates: Record<string, string> = {};
+    const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name.trim();
     if (color !== undefined) updates.color = color;
     if (icon !== undefined) updates.icon = icon;
+    if (schedule !== undefined) updates.schedule = schedule;
 
     await Habit.findOneAndUpdate({ _id: id, userId: user.userId }, { $set: updates });
 

@@ -21,9 +21,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       return NextResponse.json(
-        { success: false, error: "密码至少6个字符" },
+        { success: false, error: "密码至少8个字符" },
+        { status: 400 }
+      );
+    }
+
+    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return NextResponse.json(
+        { success: false, error: "密码需包含至少一个字母和一个数字" },
         { status: 400 }
       );
     }

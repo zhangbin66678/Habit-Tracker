@@ -44,6 +44,7 @@ export interface IHabit extends Document {
   name: string;
   color: string;
   icon: string;
+  schedule: number[]; // [0,1,2,3,4,5,6] = 日一二三四五六, [] = 每天
   createdAt: Date;
 }
 
@@ -52,6 +53,7 @@ const HabitSchema = new Schema<IHabit>({
   name: { type: String, required: true, trim: true, maxlength: 50 },
   color: { type: String, default: "#3B82F6" },
   icon: { type: String, default: "⭐" },
+  schedule: { type: [Number], default: [] },
   createdAt: { type: Date, default: Date.now },
 });
 

@@ -10,11 +10,13 @@ interface Habit {
   name: string;
   color: string;
   icon: string;
+  schedule?: string;
   createdAt?: string;
 }
 
 const COLORS = ["#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899", "#06B6D4", "#84CC16"];
 const ICONS = ["⭐", "🏃", "📚", "🧘", "💪", "🎯", "💤", "💧", "🍎", "✍️", "🎵", "🧹"];
+const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
 
 export default function ManagePage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -24,6 +26,7 @@ export default function ManagePage() {
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLORS[0]);
   const [icon, setIcon] = useState(ICONS[0]);
+  const [schedule, setSchedule] = useState<number[]>([]); // [] = everyday
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const toast = useToast();
@@ -34,17 +37,14 @@ export default function ManagePage() {
       const res = await authFetch("/api/habits");
       const json = await res.json();
       if (json.success) setHabits(json.data);
-    } catch (err) {
-      console.error("Failed to fetch habits:", err);
-    } finally {
-      setLoading(false);
-    }
+    } catch { /* ignore */ }
+    finally { setLoading(false); }
   }, []);
 
   useEffect(() => { fetchHabits(); }, [fetchHabits]);
 
   const resetForm = () => {
-    setName(""); setColor(COLORS[0]); setIcon(ICONS[0]); setError(""); setEditingId(null);
+    setName(""); setColor(COLORS[0]); setIcon(ICONS[0]); setSchedule([]); setError(""); setEditingId(null);
   };
 
   const startEdit = (habit: Habit) => {
@@ -56,6 +56,13 @@ export default function ManagePage() {
     setError("");
   };
 
+  const toggleDay = (d: number) => {
+    setSchedule((prev) => {
+      if (prev.includes(d)) return prev.filter((x) => x !== d);
+      return [...prev, d].sort();
+    });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -64,25 +71,17 @@ export default function ManagePage() {
 
     setSubmitting(true);
     try {
-      if (editingId) {
-        const res = await authFetch("/api/habits", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingId, name: name.trim(), color, icon }),
-        });
-        const json = await res.json();
-        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); toast.showSuccess(editingId ? "更新成功" : "创建成功"); }
-        else setError(json.error || "更新失败");
-      } else {
-        const res = await authFetch("/api/habits", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), color, icon }),
-        });
-        const json = await res.json();
-        if (json.success) { resetForm(); setShowForm(false); fetchHabits(); toast.showSuccess("创建成功"); }
-        else setError(json.error || "创建失败");
-      }
+      const body = { name: name.trim(), color, icon, schedule };
+      if (editingId) Object.assign(body, { id: editingId });
+      const method = editingId ? "PUT" : "POST";
+      const res = await authFetch("/api/habits", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (json.success) { resetForm(); setShowForm(false); fetchHabits(); toast.showSuccess(editingId ? "更新成功" : "创建成功"); }
+      else setError(json.error || "操作失败");
     } catch { setError("网络错误，请重试"); }
     finally { setSubmitting(false); }
   };
@@ -156,9 +155,37 @@ export default function ManagePage() {
               ))}
             </div>
           </div>
+          <div>
+            <label className="block text-sm text-gray-600 mb-1.5">重复计划</label>
+            <div className="flex items-center gap-2 mb-2">
+              <button type="button" onClick={() => setSchedule([])}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${schedule.length === 0 ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                每天
+              </button>
+              <span className="text-xs text-gray-400">或选择具体星期</span>
+            </div>
+            <div className="flex gap-1.5">
+              {WEEKDAYS.map((d, i) => (
+                <button key={i} type="button" onClick={() => { if (schedule.length === 0) setSchedule([i]); else toggleDay(i); }}
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-medium border-2 transition-colors ${
+                    schedule.includes(i) ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-100 text-gray-400 hover:border-gray-200"
+                  }`}>
+                  {d}
+                </button>
+              ))}
+            </div>
+            {schedule.length > 0 && (
+              <p className="text-xs text-gray-400 mt-1.5">
+                已选：{schedule.map((d) => "周" + WEEKDAYS[d]).join("、")}
+              </p>
+            )}
+          </div>
           <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: color + "15" }}>{icon}</div>
-            <span className="font-medium text-gray-700">{name || "习惯名称预览"}</span>
+            <div>
+              <span className="font-medium text-gray-700">{name || "习惯名称预览"}</span>
+              <p className="text-xs text-gray-400">{schedule.length === 0 ? "每天重复" : schedule.map((d) => "周" + WEEKDAYS[d]).join("、")}</p>
+            </div>
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <button type="submit" disabled={submitting}
@@ -182,7 +209,7 @@ export default function ManagePage() {
             <div className="flex-1">
               <p className="font-medium text-gray-800">{habit.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">
-                创建于 {habit.createdAt ? new Date(habit.createdAt).toLocaleDateString("zh-CN") : "未知"}
+                {habit.schedule || "每天"} · 创建于 {habit.createdAt ? new Date(habit.createdAt).toLocaleDateString("zh-CN") : "未知"}
               </p>
             </div>
             <button onClick={() => startEdit(habit)} className="p-2 text-gray-400 hover:text-blue-500 hover:bg-blue-50 rounded-lg">
