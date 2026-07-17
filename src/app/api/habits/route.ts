@@ -28,16 +28,37 @@ export async function GET(request: NextRequest) {
     const dayOfWeek = new Date().getDay(); // 0=Sun
 
     const habitsWithStatus = habits
-      .filter((h) => h.schedule.length === 0 || h.schedule.includes(dayOfWeek))
-      .map((h) => ({
-        id: h._id.toString(),
-        name: h.name,
-        color: h.color,
-        icon: h.icon,
-        schedule: (h.schedule as number[]).length === 0 ? "每天" : h.schedule.map((d) => ["周日","周一","周二","周三","周四","周五","周六"][d]).join("、"),
-        createdAt: h.createdAt.toISOString(),
-        checkedToday: checkedSet.has(h._id.toString()),
-      }));
+      .filter((h) => {
+        // "仅一次"已过期的不显示
+        const sched = h.schedule as number[];
+        if (sched.length === 1 && sched[0] === -1) {
+          const exp = (h as unknown as { expireDate: string }).expireDate;
+          if (exp && exp < today) return false;
+          return true;
+        }
+        // 每天或匹配今天星期
+        return sched.length === 0 || sched.includes(dayOfWeek);
+      })
+      .map((h) => {
+        const sched = (h.schedule as number[]);
+        let scheduleText = "每天";
+        if (sched.length === 1 && sched[0] === -1) {
+          const exp = (h as unknown as { expireDate: string }).expireDate;
+          scheduleText = exp ? `仅一次 (${exp})` : "仅一次";
+        } else if (sched.length > 0) {
+          scheduleText = sched.map((d) => ["周日","周一","周二","周三","周四","周五","周六"][d]).join("、");
+        }
+        return {
+          id: h._id.toString(),
+          name: h.name,
+          color: h.color,
+          icon: h.icon,
+          schedule: scheduleText,
+          timeRange: (h as unknown as { timeRange: string }).timeRange || "全天",
+          createdAt: h.createdAt.toISOString(),
+          checkedToday: checkedSet.has(h._id.toString()),
+        };
+      });
 
     return NextResponse.json({ success: true, data: habitsWithStatus });
   } catch {
@@ -54,7 +75,7 @@ export async function POST(request: NextRequest) {
     await connectDB();
 
     const body = await request.json();
-    const { name, color, icon, schedule } = body;
+    const { name, color, icon, schedule, timeRange, expireDate } = body;
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json({ success: false, error: "习惯名称不能为空" }, { status: 400 });
@@ -69,6 +90,8 @@ export async function POST(request: NextRequest) {
       color: color || "#3B82F6",
       icon: icon || "⭐",
       schedule: Array.isArray(schedule) ? schedule : [],
+      timeRange: timeRange || "全天",
+      expireDate: expireDate || "",
     });
 
     return NextResponse.json(
@@ -97,7 +120,7 @@ export async function PUT(request: NextRequest) {
   try {
     await connectDB();
 
-    const { id, name, color, icon, schedule } = await request.json();
+    const { id, name, color, icon, schedule, timeRange, expireDate } = await request.json();
 
     if (!id) {
       return NextResponse.json({ success: false, error: "缺少习惯ID" }, { status: 400 });
@@ -122,6 +145,8 @@ export async function PUT(request: NextRequest) {
     if (color !== undefined) updates.color = color;
     if (icon !== undefined) updates.icon = icon;
     if (schedule !== undefined) updates.schedule = schedule;
+    if (timeRange !== undefined) updates.timeRange = timeRange;
+    if (expireDate !== undefined) updates.expireDate = expireDate;
 
     await Habit.findOneAndUpdate({ _id: id, userId: user.userId }, { $set: updates });
 

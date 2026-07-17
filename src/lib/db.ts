@@ -44,8 +44,10 @@ export interface IHabit extends Document {
   name: string;
   color: string;
   icon: string;
-  schedule: number[]; // [0,1,2,3,4,5,6] = 日一二三四五六, [] = 每天
+  schedule: number[]; // [] = 每天, [-1] = 仅一次, [0,1,2,...] = 具体星期
+  timeRange: string;  // "全天" 或 "08:00 - 09:00"
   createdAt: Date;
+  expireDate?: string; // 仅一次时的目标日期 "YYYY-MM-DD"，为空则永久
 }
 
 const HabitSchema = new Schema<IHabit>({
@@ -54,6 +56,8 @@ const HabitSchema = new Schema<IHabit>({
   color: { type: String, default: "#3B82F6" },
   icon: { type: String, default: "⭐" },
   schedule: { type: [Number], default: [] },
+  timeRange: { type: String, default: "全天" },
+  expireDate: { type: String, default: "" },
   createdAt: { type: Date, default: Date.now },
 });
 
