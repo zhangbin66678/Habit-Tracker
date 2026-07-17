@@ -18,7 +18,6 @@ interface Habit {
 const COLORS = ["#3B82F6", "#10B981", "#8B5CF6", "#F59E0B", "#EF4444", "#EC4899", "#06B6D4", "#84CC16"];
 const ICONS = ["⭐", "🏃", "📚", "🧘", "💪", "🎯", "💤", "💧", "🍎", "✍️", "🎵", "🧹"];
 const WEEKDAYS = ["日", "一", "二", "三", "四", "五", "六"];
-const TIME_SLOTS = ["全天", "06:00 - 08:00", "08:00 - 10:00", "10:00 - 12:00", "12:00 - 14:00", "14:00 - 16:00", "16:00 - 18:00", "18:00 - 20:00", "20:00 - 22:00", "22:00 - 24:00"];
 
 export default function ManagePage() {
   const [habits, setHabits] = useState<Habit[]>([]);
@@ -29,7 +28,9 @@ export default function ManagePage() {
   const [color, setColor] = useState(COLORS[0]);
   const [icon, setIcon] = useState(ICONS[0]);
   const [schedule, setSchedule] = useState<number[]>([]); // [] = everyday, [-1] = once
-  const [timeRange, setTimeRange] = useState("全天");
+  const [hour, setHour] = useState(8);
+  const [minute, setMinute] = useState(0);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [expireDate, setExpireDate] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -48,7 +49,7 @@ export default function ManagePage() {
   useEffect(() => { fetchHabits(); }, [fetchHabits]);
 
   const resetForm = () => {
-    setName(""); setColor(COLORS[0]); setIcon(ICONS[0]); setSchedule([]); setTimeRange("全天"); setExpireDate(""); setError(""); setEditingId(null);
+    setName(""); setColor(COLORS[0]); setIcon(ICONS[0]); setSchedule([]); setHour(8); setMinute(0); setShowTimePicker(false); setExpireDate(""); setError(""); setEditingId(null);
   };
 
   const startEdit = (habit: Habit) => {
@@ -75,7 +76,8 @@ export default function ManagePage() {
 
     setSubmitting(true);
     try {
-      const body = { name: name.trim(), color, icon, schedule, timeRange, expireDate: schedule[0] === -1 ? expireDate : "" };
+      const tr = showTimePicker ? `${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}` : "全天";
+      const body = { name: name.trim(), color, icon, schedule, timeRange: tr, expireDate: schedule[0] === -1 ? expireDate : "" };
       if (editingId) Object.assign(body, { id: editingId });
       const method = editingId ? "PUT" : "POST";
       const res = await authFetch("/api/habits", {
@@ -199,17 +201,63 @@ export default function ManagePage() {
             )}
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">时间段</label>
-            <div className="flex flex-wrap gap-1.5">
-              {TIME_SLOTS.map((t) => (
-                <button key={t} type="button" onClick={() => setTimeRange(t)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${
-                    timeRange === t ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-100 text-gray-400 hover:border-gray-200"
-                  }`}>
-                  {t}
-                </button>
-              ))}
+            <label className="block text-sm text-gray-600 mb-1.5">提醒时间</label>
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => setShowTimePicker(false)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${!showTimePicker ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                全天
+              </button>
+              <button type="button" onClick={() => setShowTimePicker(true)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${showTimePicker ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
+                定时提醒
+              </button>
             </div>
+            {showTimePicker && (
+              <div className="flex items-center justify-center gap-2 mt-3">
+                {/* Hour wheel */}
+                <div className="relative h-36 w-20 overflow-hidden rounded-xl bg-gray-50 border border-gray-200">
+                  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-10 border-y-2 border-blue-200 bg-blue-50/50 rounded-lg z-0" />
+                  <div className="h-full overflow-y-auto scrollbar-hide px-1 pt-[52px] pb-[52px]"
+                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    onScroll={(e) => {
+                      const el = e.currentTarget;
+                      const idx = Math.round(el.scrollTop / 36);
+                      if (idx >= 0 && idx <= 23) setHour(idx);
+                    }}>
+                    {Array.from({ length: 24 }, (_, i) => (
+                      <div key={i} className={`h-9 flex items-center justify-center text-lg font-medium ${i === hour ? "text-blue-600" : "text-gray-400"}`}>
+                        {String(i).padStart(2, "0")}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <span className="text-xl font-bold text-gray-400">:</span>
+                {/* Minute wheel */}
+                <div className="relative h-36 w-20 overflow-hidden rounded-xl bg-gray-50 border border-gray-200">
+                  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
+                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-10 border-y-2 border-blue-200 bg-blue-50/50 rounded-lg z-0" />
+                  <div className="h-full overflow-y-auto scrollbar-hide px-1 pt-[52px] pb-[52px]"
+                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+                    onScroll={(e) => {
+                      const el = e.currentTarget;
+                      const idx = Math.round(el.scrollTop / 36);
+                      if (idx >= 0 && idx <= 59) setMinute(idx);
+                    }}>
+                    {Array.from({ length: 60 }, (_, i) => (
+                      <div key={i} className={`h-9 flex items-center justify-center text-lg font-medium ${i === minute ? "text-blue-600" : "text-gray-400"}`}>
+                        {String(i).padStart(2, "0")}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="ml-2 text-sm text-gray-500">
+                  <p className="font-medium">{String(hour).padStart(2,"0")}:{String(minute).padStart(2,"0")}</p>
+                </div>
+              </div>
+            )}
           </div>
           <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg flex items-center justify-center text-xl" style={{ backgroundColor: color + "15" }}>{icon}</div>
@@ -217,7 +265,7 @@ export default function ManagePage() {
               <span className="font-medium text-gray-700">{name || "习惯名称预览"}</span>
               <p className="text-xs text-gray-400">
                 {schedule[0] === -1 ? (expireDate ? `仅一次 (${expireDate})` : "仅一次") : schedule.length === 0 ? "每天" : schedule.map((d) => "周" + WEEKDAYS[d]).join("、")}
-                {timeRange !== "全天" ? ` · ${timeRange}` : ""}
+                {showTimePicker ? ` · ${String(hour).padStart(2,"0")}:${String(minute).padStart(2,"0")}` : ""}
               </p>
             </div>
           </div>
