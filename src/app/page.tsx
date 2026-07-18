@@ -20,6 +20,7 @@ export default function HomePage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [lastCheckinId, setLastCheckinId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const confirmCtx = useConfirm();
@@ -105,6 +106,7 @@ export default function HomePage() {
           )
         );
         if (json.checked) {
+          if (json.data?.id) setLastCheckinId(json.data.id);
           setExpandedId(habitId);
           toast.showSuccess("打卡成功");
         } else {
@@ -125,16 +127,16 @@ export default function HomePage() {
     try {
       const res = await authFetch("/api/upload", { method: "POST", body: formData });
       const json = await res.json();
-      if (json.success) {
-        // Update checkin with image
-        await authFetch(`/api/habits/${habitId}/checkin`, {
-          method: "POST",
+      if (json.success && lastCheckinId) {
+        await authFetch("/api/checkins", {
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: json.data.url, note }),
+          body: JSON.stringify({ id: lastCheckinId, image: json.data.url, note }),
         });
-        setExpandedId(null);
-        setNote("");
+        toast.showSuccess("图片已保存");
       }
+      setExpandedId(null);
+      setNote("");
     } catch {
       toast.showError("上传失败");
     } finally {

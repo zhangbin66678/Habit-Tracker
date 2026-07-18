@@ -201,61 +201,31 @@ export default function ManagePage() {
             )}
           </div>
           <div>
-            <label className="block text-sm text-gray-600 mb-1.5">提醒时间</label>
-            <div className="flex items-center gap-3">
+            <label className="block text-sm text-gray-600 mb-1.5">计划时间</label>
+            <div className="flex items-center gap-2">
               <button type="button" onClick={() => setShowTimePicker(false)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${!showTimePicker ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
                 全天
               </button>
               <button type="button" onClick={() => setShowTimePicker(true)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors ${showTimePicker ? "border-blue-500 bg-blue-50 text-blue-600" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-                定时提醒
+                定时
               </button>
             </div>
             {showTimePicker && (
-              <div className="flex items-center justify-center gap-2 mt-3">
-                {/* Hour wheel */}
-                <div className="relative h-36 w-20 overflow-hidden rounded-xl bg-gray-50 border border-gray-200">
-                  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-10 border-y-2 border-blue-200 bg-blue-50/50 rounded-lg z-0" />
-                  <div className="h-full overflow-y-auto scrollbar-hide px-1 pt-[52px] pb-[52px]"
-                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    onScroll={(e) => {
-                      const el = e.currentTarget;
-                      const idx = Math.round(el.scrollTop / 36);
-                      if (idx >= 0 && idx <= 23) setHour(idx);
-                    }}>
-                    {Array.from({ length: 24 }, (_, i) => (
-                      <div key={i} className={`h-9 flex items-center justify-center text-lg font-medium ${i === hour ? "text-blue-600" : "text-gray-400"}`}>
-                        {String(i).padStart(2, "0")}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <span className="text-xl font-bold text-gray-400">:</span>
-                {/* Minute wheel */}
-                <div className="relative h-36 w-20 overflow-hidden rounded-xl bg-gray-50 border border-gray-200">
-                  <div className="absolute inset-x-0 top-0 h-12 bg-gradient-to-b from-white to-transparent z-10 pointer-events-none" />
-                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-white to-transparent z-10 pointer-events-none" />
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-10 border-y-2 border-blue-200 bg-blue-50/50 rounded-lg z-0" />
-                  <div className="h-full overflow-y-auto scrollbar-hide px-1 pt-[52px] pb-[52px]"
-                    style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
-                    onScroll={(e) => {
-                      const el = e.currentTarget;
-                      const idx = Math.round(el.scrollTop / 36);
-                      if (idx >= 0 && idx <= 59) setMinute(idx);
-                    }}>
-                    {Array.from({ length: 60 }, (_, i) => (
-                      <div key={i} className={`h-9 flex items-center justify-center text-lg font-medium ${i === minute ? "text-blue-600" : "text-gray-400"}`}>
-                        {String(i).padStart(2, "0")}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="ml-2 text-sm text-gray-500">
-                  <p className="font-medium">{String(hour).padStart(2,"0")}:{String(minute).padStart(2,"0")}</p>
-                </div>
+              <div className="flex items-center gap-2 mt-3">
+                <select value={hour} onChange={(e) => setHour(Number(e.target.value))}
+                  className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-blue-400 outline-none appearance-none text-center font-medium cursor-pointer">
+                  {Array.from({ length: 24 }, (_, i) => (
+                    <option key={i} value={i}>{String(i).padStart(2, "0")} 时</option>
+                  ))}
+                </select>
+                <select value={minute} onChange={(e) => setMinute(Number(e.target.value))}
+                  className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-blue-400 outline-none appearance-none text-center font-medium cursor-pointer">
+                  {Array.from({ length: 60 }, (_, i) => (
+                    <option key={i} value={i}>{String(i).padStart(2, "0")} 分</option>
+                  ))}
+                </select>
               </div>
             )}
           </div>
