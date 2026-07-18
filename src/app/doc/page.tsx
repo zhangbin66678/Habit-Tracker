@@ -1,34 +1,47 @@
 "use client";
 
-import React, { useEffect, useState, ComponentType } from "react";
+import { useEffect, useState } from "react";
+import SwaggerUI from "swagger-ui-react";
+import "swagger-ui-react/swagger-ui.css";
 
 export default function DocPage() {
-  const [Loaded, setLoaded] = useState(false);
+  const [spec, setSpec] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    import("swagger-ui-react").then(() => setLoaded(true));
+    fetch("/api/doc")
+      .then((res) => res.json())
+      .then((data) => {
+        setSpec(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Failed to load Swagger spec:", err);
+        setLoading(false);
+      });
   }, []);
 
-  if (!Loaded) {
+  if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: "0 auto", padding: 40, textAlign: "center" }}>
-        <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto" />
-        <p className="text-gray-400 mt-4">Loading API Docs...</p>
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">加载 API 文档中...</p>
+        </div>
       </div>
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const SwaggerUI = require("swagger-ui-react").default as ComponentType<{ spec: object }>;
-
-  const spec = {
-    openapi: "3.0.0",
-    info: { title: "Habit Tracker API", version: "1.0.0" },
-    paths: {},
-  };
+  if (!spec) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-red-500">加载 API 文档失败</p>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: 960, margin: "0 auto", padding: 20 }}>
+    <div className="swagger-container">
       <SwaggerUI spec={spec} />
     </div>
   );
