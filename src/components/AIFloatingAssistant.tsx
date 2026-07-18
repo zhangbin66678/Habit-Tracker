@@ -19,7 +19,6 @@ export default function AIFloatingAssistant() {
       content: "你好!我是 AI 助手,可以帮你分析最近 7 天的习惯打卡情况。点击下方按钮开始分析!",
     },
   ]);
-  const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
@@ -75,7 +74,7 @@ export default function AIFloatingAssistant() {
         toast.showError(json.error || "分析失败");
         setMessages((prev) => prev.slice(0, -1)); // 移除用户消息
       }
-    } catch (e) {
+    } catch {
       toast.showError("网络错误");
       setMessages((prev) => prev.slice(0, -1));
     } finally {

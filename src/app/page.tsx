@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { authFetch } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
@@ -18,6 +18,10 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [todayStr, setTodayStr] = useState("");
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [note, setNote] = useState("");
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const confirmCtx = useConfirm();
 
@@ -53,6 +57,37 @@ export default function HomePage() {
       return;
     }
     doCheckin(habitId);
+  };
+
+  const handleImageUpload = async (habitId: string, file: File) => {
+    setUploadingId(habitId);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = async () => {
+        const base64 = reader.result;
+        const res = await authFetch(`/api/habits/${habitId}/checkin`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64, note }),
+        });
+        const json = await res.json();
+        if (json.success) {
+          toast.showSuccess("打卡成功");
+          setHabits((prev) =>
+            prev.map((h) => (h.id === habitId ? { ...h, checkedToday: true } : h))
+          );
+          setExpandedId(null);
+          setNote("");
+        } else {
+          toast.showError(json.error || "上传失败");
+        }
+      };
+    } catch {
+      toast.showError("上传失败");
+    } finally {
+      setUploadingId(null);
+    }
   };
 
   const doCheckin = async (habitId: string) => {

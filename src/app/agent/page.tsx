@@ -75,7 +75,6 @@ export default function AgentPage() {
   const [sleepTime, setSleepTime] = useState("23:00");
   const [loading2, setLoading2] = useState(false);
   const [plan, setPlan] = useState<PlanResponse["data"] | null>(null);
-  const [remaining, setRemaining] = useState(10);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [editableTasks, setEditableTasks] = useState<PlanTask[]>([]);
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
@@ -133,7 +132,6 @@ export default function AgentPage() {
       console.log("[agent] 响应数据:", json);
       if (json.success && json.data) {
         setPlan(json.data);
-        setRemaining(json.remaining ?? 10);
         // 打开确认弹窗
         setEditableTasks(json.data.tasks);
         setSelectedTasks(new Set(json.data.tasks.map(t => t.id)));
@@ -142,8 +140,7 @@ export default function AgentPage() {
       } else {
         toast.showError(json.error || "生成失败");
       }
-    } catch (e) {
-      console.error("[agent] 错误:", e);
+    } catch {
       toast.showError("网络错误");
     } finally {
       setLoading2(false);
@@ -185,8 +182,7 @@ export default function AgentPage() {
       toast.showSuccess(`成功添加 ${successCount} 个习惯!`);
       setShowConfirmModal(false);
       router.push("/");
-    } catch (e) {
-      console.error(e);
+    } catch {
       toast.showError("添加失败");
     } finally {
       setSubmitting(false);
@@ -343,7 +339,7 @@ export default function AgentPage() {
               {!plan ? (
                 <div className="text-center py-12 text-gray-400">
                   <div className="text-5xl mb-3">🤖</div>
-                  <p className="text-sm">填写信息后点击"一键生成"</p>
+                  <p className="text-sm">填写信息后点击&ldquo;一键生成&rdquo;</p>
                   <p className="text-xs mt-1">AI 帮你安排明天的日程</p>
                 </div>
               ) : (

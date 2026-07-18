@@ -108,6 +108,7 @@ ${userInput}
       jsonStr = jsonMatch[0];
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let parsed: { summary: string; tasks: any[] };
     try {
       parsed = JSON.parse(jsonStr);
@@ -125,6 +126,7 @@ ${userInput}
     }
 
     // 补全 id 字段
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parsed.tasks = parsed.tasks.map((t: any, i: number) => ({
       id: t.id || String(i + 1),
       time: t.time || "08:00",

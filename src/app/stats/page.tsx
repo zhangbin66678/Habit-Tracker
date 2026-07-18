@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/contexts/AuthContext";
-import { useToast } from "@/contexts/ToastContext";
 
 interface Habit { id: string; name: string; color: string; icon: string; }
 interface Checkin { id: string; habitId: string; date: string; image?: string; note?: string; }
@@ -27,47 +26,6 @@ export default function StatsPage() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState<{ url: string; note: string } | null>(null);
-  const toast = useToast();
-
-  // AI states
-  const [apiKey, setApiKey] = useState("");
-  const [showKeyInput, setShowKeyInput] = useState(false);
-  const [aiLoading, setAiLoading] = useState<string | null>(null);
-  const [aiResult, setAiResult] = useState<Record<string, string>>({});
-  const [remaining, setRemaining] = useState(3);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("openai_api_key") || "";
-    setApiKey(saved);
-  }, []);
-
-  const callAI = async (type: "plan" | "analyze" | "motivate") => {
-    const key = apiKey || localStorage.getItem("openai_api_key") || "";
-    if (!key) { setShowKeyInput(true); return; }
-
-    setAiLoading(type);
-    try {
-      const res = await authFetch(`/api/ai/${type}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setAiResult((prev) => ({ ...prev, [type]: json.data }));
-        setRemaining(json.remaining);
-      } else {
-        toast.showError(json.error || "AI 生成失败");
-      }
-    } catch { toast.showError("网络错误"); }
-    finally { setAiLoading(null); }
-  };
-
-  const saveKey = () => {
-    localStorage.setItem("openai_api_key", apiKey);
-    setShowKeyInput(false);
-    toast.showSuccess("API Key 已保存");
-  };
 
   const fetchStats = useCallback(async () => {
     try {
