@@ -5,6 +5,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { ConfirmProvider } from "@/contexts/ConfirmContext";
 import AuthGuard from "@/components/AuthGuard";
+import AIFloatingAssistant from "@/components/AIFloatingAssistant";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -28,7 +29,10 @@ export default function RootLayout({
         <AuthProvider>
           <ToastProvider>
             <ConfirmProvider>
-              <AuthGuard>{children}</AuthGuard>
+              <AuthGuard>
+                {children}
+                <AIFloatingAssistant />
+              </AuthGuard>
             </ConfirmProvider>
           </ToastProvider>
         </AuthProvider>

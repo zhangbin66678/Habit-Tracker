@@ -22,7 +22,7 @@ export function getDailyCount(userId: string): number {
 
 export function createLLM(apiKey: string) {
   return new ChatOpenAI({
-    openAIApiKey: apiKey,
+    apiKey: apiKey,
     modelName: "deepseek-chat",
     temperature: 0.8,
     maxTokens: 1024,

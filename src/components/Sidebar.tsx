@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { href: "/", label: "今日打卡", icon: "✅", desc: "完成每日习惯" },
+  { href: "/agent", label: "智能规划", icon: "🧠", desc: "AI 生成日程" },
   { href: "/history", label: "历史记录", icon: "📅", desc: "查看打卡详情" },
   { href: "/stats", label: "数据统计", icon: "📊", desc: "分析习惯趋势" },
   { href: "/manage", label: "习惯管理", icon: "⚙️", desc: "添加编辑习惯" },

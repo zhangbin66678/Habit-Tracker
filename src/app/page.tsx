@@ -18,6 +18,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [todayStr, setTodayStr] = useState("");
   const [uploadingId, setUploadingId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [lastCheckinId, setLastCheckinId] = useState<string | null>(null);
@@ -198,10 +199,17 @@ export default function HomePage() {
             {habits.length === 0 && (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-4xl mb-3">🌱</p>
-                <p>还没有习惯，去管理页添加吧</p>
+                <p>还没有习惯,去管理页添加吧</p>
               </div>
             )}
-            {habits.map((habit) => (
+            {habits
+              .filter((habit) => {
+                if (filter === "all") return true;
+                if (filter === "completed") return habit.checkedToday;
+                if (filter === "pending") return !habit.checkedToday;
+                return true;
+              })
+              .map((habit) => (
               <div key={habit.id}>
                 <button onClick={() => toggleCheckin(habit.id)}
                   className={`w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-200 hover:shadow-md ${habit.checkedToday ? "bg-green-50 border-green-200" : "bg-white border-gray-100 hover:border-gray-200"}`}>
@@ -243,14 +251,28 @@ export default function HomePage() {
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
             <h3 className="font-semibold text-gray-800 mb-3">快捷操作</h3>
             <div className="space-y-2">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-50 text-blue-700">
+              <button
+                onClick={() => setFilter(filter === "pending" ? "all" : "pending")}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
+                  filter === "pending"
+                    ? "bg-blue-100 text-blue-800 ring-2 ring-blue-400"
+                    : "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                }`}
+              >
                 <span className="text-lg">📋</span>
                 <div><p className="text-sm font-medium">待完成</p><p className="text-xs text-blue-400">{totalCount - checkedCount} 个习惯</p></div>
-              </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 text-green-700">
+              </button>
+              <button
+                onClick={() => setFilter(filter === "completed" ? "all" : "completed")}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors text-left ${
+                  filter === "completed"
+                    ? "bg-green-100 text-green-800 ring-2 ring-green-400"
+                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                }`}
+              >
                 <span className="text-lg">✅</span>
                 <div><p className="text-sm font-medium">已完成</p><p className="text-xs text-green-400">{checkedCount} 个习惯</p></div>
-              </div>
+              </button>
             </div>
           </div>
           {habits.length === 0 && (
@@ -268,60 +290,6 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* AI Assistant */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100 flex flex-col" style={{ maxHeight: 480 }}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">🤖</span>
-                <h3 className="font-semibold text-gray-800 text-sm">AI 助手</h3>
-                <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">DeepSeek</span>
-              </div>
-              <button onClick={() => setShowKeyInput(!showKeyInput)}
-                className="w-6 h-6 rounded-md bg-white border border-blue-200 flex items-center justify-center text-blue-400 hover:bg-blue-50">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-              </button>
-            </div>
-            {showKeyInput && (
-              <div className="bg-white rounded-lg p-2.5 mb-3 border border-blue-200 space-y-1.5">
-                <p className="text-[11px] text-gray-500">DeepSeek API Key（仅存本地浏览器）</p>
-                <div className="flex gap-1.5">
-                  <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..."
-                    className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:border-blue-400 outline-none" />
-                  <button onClick={saveKey} className="px-2.5 py-1.5 bg-blue-600 text-white rounded-lg text-xs hover:bg-blue-700">保存</button>
-                </div>
-              </div>
-            )}
-            <div className="flex-1 overflow-y-auto space-y-2 mb-3 min-h-0" style={{ scrollbarWidth: "thin" }}>
-              {aiMessages.length === 0 && (
-                <div className="text-center py-6">
-                  <p className="text-2xl mb-2">💬</p>
-                  <p className="text-xs text-gray-400">试试问我：</p>
-                  <p className="text-[10px] text-gray-300 mt-1">{'"帮我分析最近打卡" / "帮我创建晨跑和阅读习惯"'}</p>
-                </div>
-              )}
-              {aiMessages.map((m, i) => (
-                <div key={i} className={`rounded-lg p-2.5 text-xs leading-relaxed ${m.role === "user" ? "bg-blue-100 text-blue-800 ml-6" : "bg-white border border-blue-100 text-gray-700 mr-2"}`}>
-                  {m.text}
-                </div>
-              ))}
-              {aiLoading && (
-                <div className="bg-white border border-blue-100 rounded-lg p-2.5 mr-2">
-                  <div className="flex gap-1"><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} /><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} /><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} /></div>
-                </div>
-              )}
-              <div ref={chatEndRef} />
-            </div>
-            <div className="flex gap-1.5">
-              <input type="text" value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendAI()}
-                placeholder="问我任何关于习惯的问题..." maxLength={200} disabled={aiLoading || remaining <= 0}
-                className="flex-1 px-3 py-2 rounded-xl border border-blue-200 text-xs bg-white focus:border-blue-400 outline-none disabled:opacity-40" />
-              <button onClick={sendAI} disabled={aiLoading || remaining <= 0 || !aiInput.trim()}
-                className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs hover:bg-blue-700 disabled:opacity-40">
-                发送
-              </button>
-            </div>
-            <p className="text-[10px] text-gray-400 mt-1.5 text-right">今日剩余 {remaining}/10 次</p>
-          </div>
         </div>
       </div>
     </div>

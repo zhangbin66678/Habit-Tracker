@@ -884,6 +884,151 @@
           }
         }
       }
+    },
+    "/api/ai/agent-plan": {
+      "post": {
+        "summary": "AI 智能体生成日程规划",
+        "tags": ["AI助手"],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "根据用户描述、目标日期、起床/睡觉时间,使用 DeepSeek AI 生成详细的明日日程安排",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["apiKey", "userInput"],
+                "properties": {
+                  "apiKey": {
+                    "type": "string",
+                    "description": "DeepSeek API Key(以 sk- 开头)"
+                  },
+                  "userInput": {
+                    "type": "string",
+                    "description": "用户描述想做的事情"
+                  },
+                  "targetDate": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "目标日期(YYYY-MM-DD),默认为明天"
+                  },
+                  "wakeTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "description": "起床时间(HH:MM),默认 07:00"
+                  },
+                  "sleepTime": {
+                    "type": "string",
+                    "pattern": "^\\d{2}:\\d{2}$",
+                    "description": "睡觉时间(HH:MM),默认 23:00"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "生成成功",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "date": {
+                          "type": "string",
+                          "description": "规划日期"
+                        },
+                        "summary": {
+                          "type": "string",
+                          "description": "整体规划思路说明"
+                        },
+                        "tasks": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "string"
+                              },
+                              "time": {
+                                "type": "string",
+                                "description": "开始时间 HH:MM"
+                              },
+                              "title": {
+                                "type": "string"
+                              },
+                              "duration": {
+                                "type": "integer",
+                                "description": "持续时间(分钟)"
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "category": {
+                                "type": "string",
+                                "enum": ["work", "health", "study", "life", "social", "rest"]
+                              },
+                              "priority": {
+                                "type": "string",
+                                "enum": ["high", "medium", "low"]
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "remaining": {
+                      "type": "integer",
+                      "description": "今日剩余调用次数"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数缺失",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "未登录或登录过期",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "今日额度已用完",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "tags": [
