@@ -669,67 +669,10 @@
             "description": "删除成功"
           }
         }
-      }
-    },
-    "/api/upload": {
-      "post": {
-        "summary": "上传图片",
-        "tags": ["文件上传"],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": ["image"],
-                "properties": {
-                  "image": {
-                    "type": "string",
-                    "format": "binary",
-                    "description": "图片文件"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "上传成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "url": {
-                          "type": "string",
-                          "description": "图片访问URL"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ai/plan": {
-      "post": {
-        "summary": "AI生成今日规划",
-        "tags": ["AI助手"],
+      },
+      "patch": {
+        "summary": "更新打卡记录",
+        "tags": ["打卡"],
         "security": [
           {
             "bearerAuth": []
@@ -741,11 +684,19 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["apiKey"],
+                "required": ["id"],
                 "properties": {
-                  "apiKey": {
+                  "id": {
                     "type": "string",
-                    "description": "OpenAI API Key"
+                    "description": "打卡记录ID"
+                  },
+                  "image": {
+                    "type": "string",
+                    "description": "新的打卡图片URL"
+                  },
+                  "note": {
+                    "type": "string",
+                    "description": "新的打卡备注"
                   }
                 }
               }
@@ -754,7 +705,7 @@
         },
         "responses": {
           "200": {
-            "description": "生成成功",
+            "description": "更新成功",
             "content": {
               "application/json": {
                 "schema": {
@@ -763,15 +714,20 @@
                     "success": {
                       "type": "boolean"
                     },
-                    "data": {
-                      "type": "string",
-                      "description": "AI生成的规划内容"
-                    },
-                    "remaining": {
-                      "type": "integer",
-                      "description": "今日剩余调用次数"
+                    "message": {
+                      "type": "string"
                     }
                   }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "记录不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -819,59 +775,6 @@
                     "data": {
                       "type": "string",
                       "description": "AI分析内容"
-                    },
-                    "remaining": {
-                      "type": "integer",
-                      "description": "今日剩余调用次数"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/ai/motivate": {
-      "post": {
-        "summary": "AI激励语句",
-        "tags": ["AI助手"],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["apiKey"],
-                "properties": {
-                  "apiKey": {
-                    "type": "string",
-                    "description": "OpenAI API Key"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "生成成功",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "data": {
-                      "type": "string",
-                      "description": "AI激励内容"
                     },
                     "remaining": {
                       "type": "integer",
@@ -1047,10 +950,6 @@
     {
       "name": "统计",
       "description": "数据统计和分析"
-    },
-    {
-      "name": "文件上传",
-      "description": "图片上传"
     },
     {
       "name": "AI助手",

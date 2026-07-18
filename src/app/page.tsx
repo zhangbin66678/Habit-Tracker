@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { authFetch } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useConfirm } from "@/contexts/ConfirmContext";
@@ -17,63 +17,9 @@ export default function HomePage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [loading, setLoading] = useState(true);
   const [todayStr, setTodayStr] = useState("");
-  const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "completed" | "pending">("all");
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [lastCheckinId, setLastCheckinId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
   const confirmCtx = useConfirm();
-
-  // AI states
-  const [apiKey, setApiKey] = useState("");
-  const [showKeyInput, setShowKeyInput] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiMessages, setAiMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
-  const [aiInput, setAiInput] = useState("");
-  const [remaining, setRemaining] = useState(10);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => { setApiKey(localStorage.getItem("openai_api_key") || ""); }, []);
-
-  const sendAI = async () => {
-    const msg = aiInput.trim();
-    if (!msg || aiLoading) return;
-    const key = apiKey || localStorage.getItem("openai_api_key") || "";
-    if (!key) { setShowKeyInput(true); return; }
-    setAiMessages((prev) => [...prev, { role: "user", text: msg }]);
-    setAiInput("");
-    setAiLoading(true);
-    try {
-      const res = await authFetch("/api/ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key, message: msg }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        setAiMessages((prev) => [...prev, { role: "ai", text: json.data.text }]);
-        setRemaining(json.remaining);
-        if (json.data.action?.type === "create_habits") {
-          fetchHabits();
-        }
-      } else {
-        setAiMessages((prev) => [...prev, { role: "ai", text: "⚠️ " + (json.error || "请求失败") }]);
-      }
-    } catch {
-      setAiMessages((prev) => [...prev, { role: "ai", text: "⚠️ 网络错误" }]);
-    }
-    finally { setAiLoading(false); }
-  };
-
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
-
-  const saveKey = () => {
-    localStorage.setItem("openai_api_key", apiKey);
-    setShowKeyInput(false);
-    toast.showSuccess("API Key 已保存");
-  };
 
   const fetchHabits = useCallback(async () => {
     try {
@@ -124,8 +70,6 @@ export default function HomePage() {
           )
         );
         if (json.checked) {
-          if (json.data?.id) setLastCheckinId(json.data.id);
-          setExpandedId(habitId);
           toast.showSuccess("打卡成功");
         } else {
           toast.showInfo("已取消打卡");
@@ -135,30 +79,6 @@ export default function HomePage() {
       }
     } catch {
       toast.showError("网络错误");
-    }
-  };
-
-  const handleImageUpload = async (habitId: string, file: File) => {
-    setUploadingId(habitId);
-    const formData = new FormData();
-    formData.append("image", file);
-    try {
-      const res = await authFetch("/api/upload", { method: "POST", body: formData });
-      const json = await res.json();
-      if (json.success && lastCheckinId) {
-        await authFetch("/api/checkins", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: lastCheckinId, image: json.data.url, note }),
-        });
-        toast.showSuccess("图片已保存");
-      }
-      setExpandedId(null);
-      setNote("");
-    } catch {
-      toast.showError("上传失败");
-    } finally {
-      setUploadingId(null);
     }
   };
 
