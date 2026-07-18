@@ -11,7 +11,7 @@ function checkRateLimit(userId: string): boolean {
     lastResetDate = today;
   }
   dailyUsage[userId] = (dailyUsage[userId] || 0) + 1;
-  return dailyUsage[userId] <= 3;
+  return dailyUsage[userId] <= 10;
 }
 
 export function getDailyCount(userId: string): number {
@@ -23,9 +23,12 @@ export function getDailyCount(userId: string): number {
 export function createLLM(apiKey: string) {
   return new ChatOpenAI({
     openAIApiKey: apiKey,
-    modelName: "gpt-4o-mini",
+    modelName: "deepseek-chat",
     temperature: 0.8,
-    maxTokens: 500,
+    maxTokens: 1024,
+    configuration: {
+      baseURL: "https://api.deepseek.com",
+    },
   });
 }
 

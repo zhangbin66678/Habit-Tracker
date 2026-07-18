@@ -29,27 +29,44 @@ export default function HomePage() {
   const [apiKey, setApiKey] = useState("");
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState("");
-  const [remaining, setRemaining] = useState(3);
+  const [aiMessages, setAiMessages] = useState<{ role: "user" | "ai"; text: string }[]>([]);
+  const [aiInput, setAiInput] = useState("");
+  const [remaining, setRemaining] = useState(10);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { setApiKey(localStorage.getItem("openai_api_key") || ""); }, []);
 
-  const callAI = async (type: "plan" | "motivate") => {
+  const sendAI = async () => {
+    const msg = aiInput.trim();
+    if (!msg || aiLoading) return;
     const key = apiKey || localStorage.getItem("openai_api_key") || "";
     if (!key) { setShowKeyInput(true); return; }
+    setAiMessages((prev) => [...prev, { role: "user", text: msg }]);
+    setAiInput("");
     setAiLoading(true);
     try {
-      const res = await authFetch(`/api/ai/${type}`, {
+      const res = await authFetch("/api/ai/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: key }),
+        body: JSON.stringify({ apiKey: key, message: msg }),
       });
       const json = await res.json();
-      if (json.success) { setAiResult(json.data); setRemaining(json.remaining); }
-      else toast.showError(json.error || "AI 生成失败");
-    } catch { toast.showError("网络错误"); }
+      if (json.success) {
+        setAiMessages((prev) => [...prev, { role: "ai", text: json.data.text }]);
+        setRemaining(json.remaining);
+        if (json.data.action?.type === "create_habits") {
+          fetchHabits();
+        }
+      } else {
+        setAiMessages((prev) => [...prev, { role: "ai", text: "⚠️ " + (json.error || "请求失败") }]);
+      }
+    } catch {
+      setAiMessages((prev) => [...prev, { role: "ai", text: "⚠️ 网络错误" }]);
+    }
     finally { setAiLoading(false); }
   };
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages]);
 
   const saveKey = () => {
     localStorage.setItem("openai_api_key", apiKey);
@@ -252,12 +269,12 @@ export default function HomePage() {
           )}
 
           {/* AI Assistant */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 border border-blue-100 flex flex-col" style={{ maxHeight: 480 }}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🤖</span>
                 <h3 className="font-semibold text-gray-800 text-sm">AI 助手</h3>
-                <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">LangChain</span>
+                <span className="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded-full">DeepSeek</span>
               </div>
               <button onClick={() => setShowKeyInput(!showKeyInput)}
                 className="w-6 h-6 rounded-md bg-white border border-blue-200 flex items-center justify-center text-blue-400 hover:bg-blue-50">
@@ -266,7 +283,7 @@ export default function HomePage() {
             </div>
             {showKeyInput && (
               <div className="bg-white rounded-lg p-2.5 mb-3 border border-blue-200 space-y-1.5">
-                <p className="text-[11px] text-gray-500">OpenAI API Key（仅存本地）</p>
+                <p className="text-[11px] text-gray-500">DeepSeek API Key（仅存本地浏览器）</p>
                 <div className="flex gap-1.5">
                   <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-..."
                     className="flex-1 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs focus:border-blue-400 outline-none" />
@@ -274,24 +291,36 @@ export default function HomePage() {
                 </div>
               </div>
             )}
-            <div className="flex gap-1.5 mb-3">
-              <button onClick={() => callAI("plan")} disabled={aiLoading || remaining <= 0}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-40">
-                {aiLoading ? <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /> : <span>📋</span>}
-                今日规划
-              </button>
-              <button onClick={() => callAI("motivate")} disabled={aiLoading || remaining <= 0}
-                className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-medium border border-blue-200 text-blue-600 hover:bg-blue-100 disabled:opacity-40">
-                {aiLoading ? <div className="w-3 h-3 border-2 border-blue-300 border-t-blue-600 rounded-full animate-spin" /> : <span>💪</span>}
-                来点激励
+            <div className="flex-1 overflow-y-auto space-y-2 mb-3 min-h-0" style={{ scrollbarWidth: "thin" }}>
+              {aiMessages.length === 0 && (
+                <div className="text-center py-6">
+                  <p className="text-2xl mb-2">💬</p>
+                  <p className="text-xs text-gray-400">试试问我：</p>
+                  <p className="text-[10px] text-gray-300 mt-1">{'"帮我分析最近打卡" / "帮我创建晨跑和阅读习惯"'}</p>
+                </div>
+              )}
+              {aiMessages.map((m, i) => (
+                <div key={i} className={`rounded-lg p-2.5 text-xs leading-relaxed ${m.role === "user" ? "bg-blue-100 text-blue-800 ml-6" : "bg-white border border-blue-100 text-gray-700 mr-2"}`}>
+                  {m.text}
+                </div>
+              ))}
+              {aiLoading && (
+                <div className="bg-white border border-blue-100 rounded-lg p-2.5 mr-2">
+                  <div className="flex gap-1"><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} /><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} /><div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} /></div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+            <div className="flex gap-1.5">
+              <input type="text" value={aiInput} onChange={(e) => setAiInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && sendAI()}
+                placeholder="问我任何关于习惯的问题..." maxLength={200} disabled={aiLoading || remaining <= 0}
+                className="flex-1 px-3 py-2 rounded-xl border border-blue-200 text-xs bg-white focus:border-blue-400 outline-none disabled:opacity-40" />
+              <button onClick={sendAI} disabled={aiLoading || remaining <= 0 || !aiInput.trim()}
+                className="px-3 py-2 bg-blue-600 text-white rounded-xl text-xs hover:bg-blue-700 disabled:opacity-40">
+                发送
               </button>
             </div>
-            {aiResult && (
-              <div className="bg-white rounded-lg p-3 border border-blue-100">
-                <p className="text-xs text-gray-700 leading-relaxed whitespace-pre-line">{aiResult}</p>
-              </div>
-            )}
-            <p className="text-[10px] text-gray-400 mt-2 text-right">今日剩余 {remaining}/3 次</p>
+            <p className="text-[10px] text-gray-400 mt-1.5 text-right">今日剩余 {remaining}/10 次</p>
           </div>
         </div>
       </div>
