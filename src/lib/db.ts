@@ -1,8 +1,15 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
-const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/habit_tracker";
+const MONGODB_URI: string = process.env.MONGODB_URI!;
 
-// Global connection cache for serverless
+if (!MONGODB_URI) {
+  throw new Error(
+    "请在环境变量中设置 MONGODB_URI。\n" +
+    "Vercel: Settings → Environment Variables → 添加 MONGODB_URI"
+  );
+}
+
+// Global cache to avoid reconnecting on every request (serverless-friendly)
 interface MongooseCache {
   conn: typeof mongoose | null;
   promise: Promise<typeof mongoose> | null;
@@ -16,11 +23,33 @@ if (!g.mongooseCache) {
 const cached = g.mongooseCache as MongooseCache;
 
 export async function connectDB() {
-  if (cached.conn) return;
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI).then((m) => m);
+  if (cached.conn) {
+    // 已有连接，检查状态
+    if (mongoose.connection.readyState === 1) return;
+    // 连接断开，重置缓存
+    cached.conn = null;
+    cached.promise = null;
   }
-  cached.conn = await cached.promise;
+
+  if (!cached.promise) {
+    const opts = {
+      bufferCommands: false,          // serverless 必须关闭
+      serverSelectionTimeoutMS: 5000, // 5秒超时
+      connectTimeoutMS: 10000,        // 10秒连接超时
+    };
+    cached.promise = mongoose.connect(MONGODB_URI, opts).then((m) => m);
+  }
+
+  try {
+    cached.conn = await cached.promise;
+    console.log("[DB] MongoDB 连接成功");
+  } catch (e) {
+    // 连接失败时重置缓存，允许下次请求重试
+    cached.promise = null;
+    cached.conn = null;
+    console.error("[DB] MongoDB 连接失败:", e);
+    throw e;
+  }
 }
 
 // --- Schemas ---
@@ -44,10 +73,10 @@ export interface IHabit extends Document {
   name: string;
   color: string;
   icon: string;
-  schedule: number[]; // [] = 每天, [-1] = 仅一次, [0,1,2,...] = 具体星期
-  timeRange: string;  // "全天" 或 "08:00 - 09:00"
+  schedule: number[];
+  timeRange: string;
   createdAt: Date;
-  expireDate?: string; // 仅一次时的目标日期 "YYYY-MM-DD"，为空则永久
+  expireDate?: string;
 }
 
 const HabitSchema = new Schema<IHabit>({
@@ -64,7 +93,7 @@ const HabitSchema = new Schema<IHabit>({
 export interface ICheckin extends Document {
   habitId: string;
   userId: string;
-  date: string; // "YYYY-MM-DD"
+  date: string;
   image: string;
   note: string;
   createdAt: Date;

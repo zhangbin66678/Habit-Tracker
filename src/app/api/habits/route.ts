@@ -61,7 +61,8 @@ export async function GET(request: NextRequest) {
       });
 
     return NextResponse.json({ success: true, data: habitsWithStatus });
-  } catch {
+  } catch (e) {
+    console.error("[habits] GET 错误:", e);
     return NextResponse.json({ success: false, error: "Failed to read habits" }, { status: 500 });
   }
 }

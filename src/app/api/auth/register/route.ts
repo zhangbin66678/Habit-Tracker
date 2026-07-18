@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
+  } catch (e) {
+    console.error("[register] 错误:", e);
     return NextResponse.json(
       { success: false, error: "注册失败" },
       { status: 500 }
