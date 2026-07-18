@@ -42,7 +42,6 @@ export default function DocPage() {
 
   return (
     <div className="swagger-container">
-      {/* @ts-expect-error swagger-ui-react type incompatible with React 18 */}
       <SwaggerUI spec={spec} />
     </div>
   );
